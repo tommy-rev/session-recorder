@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "noImplicitAny": true,
+        "module": "commonjs",
+        "target": "es5",
+        "lib": ["es5", "es6", "dom"],
+        "strictNullChecks": true
+    }
+}
