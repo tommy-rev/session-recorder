@@ -1,6 +1,4 @@
 import * as Redis from 'ioredis';
-import { AsapAction } from 'rxjs/scheduler/AsapAction';
-import { AsapScheduler } from 'rxjs/scheduler/AsapScheduler';
 
 import { AttributedModification, ModificationSource } from './blaze/modification';
 import { TreeDatabase } from './blaze/tree-database';
@@ -10,7 +8,7 @@ import { Whiteboard } from './whiteboard/whiteboard';
 const sessionToken = 's698D';
 
 // setup db and whiteboard renderer
-const blazeDb = new TreeDatabase(false, new AsapScheduler(AsapAction));
+const blazeDb = new TreeDatabase(false);
 const whiteboard = new Whiteboard(blazeDb);
 
 // subscribe to redis
@@ -27,11 +25,11 @@ redis.llen(key, (errA: object, count: number) => {
 });
 
 // main execution loop
-function record(res: Buffer[]) {
-    let prevTicks: number;
+async function record(res: Buffer[]) {
+    let prevTicks = 0;
 
     // process each binary update
-    res.forEach(binary => {
+    for (const binary of res) {
         // extract and deserialize the update from the binary data
         const update = JSON.parse(binary.slice(4, binary.length - 8).toString()) as Update;
         const modification: AttributedModification = {
@@ -54,6 +52,6 @@ function record(res: Buffer[]) {
         // apply the update to the db
         blazeDb.modificationSink.next(modification);
 
-        whiteboard.takeSnapshot();
-    });
+        await whiteboard.takeSnapshot();
+    }
 }

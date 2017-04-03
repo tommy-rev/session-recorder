@@ -1,7 +1,3 @@
-import 'rxjs/add/operator/observeOn';
-import { AsapAction } from 'rxjs/scheduler/AsapAction';
-import { AsapScheduler } from 'rxjs/scheduler/AsapScheduler';
-
 import * as Fabric from 'fabric';
 const fabric = (Fabric as any).fabric as typeof Fabric;
 import { Canvas } from 'fabric';
@@ -39,14 +35,20 @@ export class Whiteboard {
     }
 
     takeSnapshot() {
-        // TODO: diff clock and timeOfLastSnapshot to get the file duration
-        console.log(`taking snapshot ${this.snapshotIdx + 1}`);
+        return new Promise((resolve) => {
+            // TODO: diff clock and timeOfLastSnapshot to get the file duration
+            console.log(`taking snapshot ${this.snapshotIdx + 1}`);
 
-        const file = createWriteStream(`/Users/tommy/Documents/session-recorder/snapshots/${++this.snapshotIdx}.png`);
-        const stream = (this.canvas as any).createPNGStream();
+            const file = createWriteStream(`/Users/tommy/Documents/session-recorder/snapshots/${++this.snapshotIdx}.png`);
+            const stream = (this.canvas as any).createPNGStream();
 
-        stream.on('data', (chunk: any) => file.write(chunk));
-        stream.on('end', () => this.fileCount++);
+            stream.on('data', (chunk: any) => file.write(chunk));
+
+            stream.on('end', () => {
+                this.fileCount++;
+                resolve();
+            });
+        });
     }
 
     private subscribe() {
@@ -54,23 +56,14 @@ export class Whiteboard {
             this.blazeDb.reference('whiteboard/canvasWidth')
                 .changes(new Set([TreeDataEventType.ValueChanged]))
                 .map(ev => ev.value.value as number)
-                .observeOn(new AsapScheduler(AsapAction))
-                .subscribe(width => {
-                    this.canvas.setWidth(width);
-                    this.canvas.renderAll();
-                    console.log('render width');
-                })
+                .subscribe(width => this.canvas.setWidth(width))
         );
 
         this.subscription.add(
             this.blazeDb.reference('whiteboard/canvasHeight')
                 .changes(new Set([TreeDataEventType.ValueChanged]))
                 .map(ev => ev.value.value as number)
-                .observeOn(new AsapScheduler(AsapAction))
-                .subscribe(height => {
-                    this.canvas.setHeight(height);
-                    this.canvas.renderAll();
-                })
+                .subscribe(height => this.canvas.setHeight(height))
         );
     }
 }
