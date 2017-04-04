@@ -5,7 +5,7 @@ import { TreeDatabase } from './blaze/tree-database';
 import { Update } from './blaze/update';
 import { Whiteboard } from './whiteboard/whiteboard';
 
-const sessionToken = 's69E9';
+const sessionToken = 's6A07';
 
 // setup db and whiteboard renderer
 const blazeDb = new TreeDatabase(false);

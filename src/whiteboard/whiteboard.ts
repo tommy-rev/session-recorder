@@ -3,7 +3,7 @@ const fabric = (Fabric as any).fabric as typeof Fabric;
 import { Canvas } from 'fabric';
 const { createCanvasForNode } = fabric;
 
-import { createWriteStream } from 'fs';
+import { createReadStream, createWriteStream } from 'fs';
 import { Subscription } from 'rxjs/Subscription';
 
 import { PathInfo, PathFactory } from './path-factory';
@@ -20,6 +20,8 @@ type MemberInfo = {
 };
 
 export class Whiteboard {
+    readonly basePath = '/Users/tommy/Documents/session-recorder/snapshots';
+
     private blazeDb: TreeDatabase;
     private subscription = new Subscription();
 
@@ -53,17 +55,20 @@ export class Whiteboard {
     }
 
     takeSnapshot() {
-        return new Promise((resolve) => {
+        return new Promise(async (resolve) => {
             // only take a snapshot if the whiteboard has recently been changed
             if (!this.isDirty) {
                 resolve();
                 return;
             }
 
-            // TODO: diff clock and timeOfLastSnapshot to get the file duration
+            const duration = Math.round(this.clock - this.timeOfLastSnapshot);
+            const snapshotCount =  Math.round(duration / ((1 / 60) * 1000));
+            for (let i = 0; i < snapshotCount - 1; ++i) {
+                await Whiteboard.copyFile(`${this.basePath}/${this.snapshotIdx}.png`, `${this.basePath}/${++this.snapshotIdx}.png`);
+            }
 
-            const fileName = `${++this.snapshotIdx}-${this.clock / 1000}`;
-            const file = createWriteStream(`/Users/tommy/Documents/session-recorder/snapshots/${fileName}.png`);
+            const file = createWriteStream(`${this.basePath}/${++this.snapshotIdx}.png`);
             const stream = (this.canvas as any).createPNGStream();
 
             stream.on('data', (chunk: any) => file.write(chunk));
@@ -77,6 +82,15 @@ export class Whiteboard {
         });
     }
 
+    private static copyFile(src: string, dst: string) {
+        return new Promise((resolve) => {
+            const stream = createReadStream(src);
+            stream.on('end', () => resolve());
+
+            stream.pipe(createWriteStream(dst));
+        });
+    }
+
     private subscribe() {
         this.subscription.add(
             this.blazeDb.reference('whiteboard')
@@ -85,6 +99,7 @@ export class Whiteboard {
                 .subscribe(info => {
                     this.canvas.setWidth(info.canvasWidth);
                     this.canvas.setHeight(info.canvasHeight);
+                    this.isDirty = true;
                 })
         );
 
@@ -93,7 +108,7 @@ export class Whiteboard {
                 .changes(new Set([TreeDataEventType.ChildChanged]))
                 .map(ev => ev.value.toJSON() as MemberInfo)
                 .subscribe(info => {
-                    if (!this.isStarted && info.audioStatus === 2 && ++this.audioReadyCount === 3) {
+                    if (!this.isStarted && info.audioStatus === 2 && ++this.audioReadyCount === 1) {
                         this.isStarted = true;
                     }
                 })
